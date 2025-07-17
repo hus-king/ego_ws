@@ -1,0 +1,3 @@
+<launch>
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find complete_mission)/launch/ego.rviz" required="true" />
+</launch>

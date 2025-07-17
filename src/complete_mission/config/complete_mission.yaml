@@ -1,0 +1,38 @@
+target1_x : 1.0
+target1_y : 0
+
+target2_x : 3.5
+target2_y : 0.3
+
+target3_x : 3.2
+target3_y : 0.3
+
+target4_x : 3.3
+target4_y : 3.4
+
+target5_x : 2.2
+target5_y : 3
+
+target6_x : 2.2
+target6_y : 2.1
+
+target7_x : 2.2
+target7_y : 2.9
+
+target8_x : 2.2
+target8_y : 3.7
+
+real_target_x : 2.2
+real_target_y : 2.9
+
+predict_where: 1
+predict_target: B
+
+# fly height
+box_altitude : 0.1
+view_altitude : 1.0
+shoot_altitude : 0.9
+
+err_max : 0.1
+
+ocr_threshold: 0.3
