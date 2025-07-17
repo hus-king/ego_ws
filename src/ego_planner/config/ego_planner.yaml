@@ -1,0 +1,13 @@
+target1_x : 1;
+target1_y : 0;
+
+target2_x : 1;
+target2_y : 1;
+
+target3_x : 0;
+target3_y : 1;
+
+target4_x : 0;
+target4_y : 0;
+
+err_max : 0.1;
