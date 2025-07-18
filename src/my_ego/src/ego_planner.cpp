@@ -25,13 +25,6 @@ void print_publish()
     std::cout<< "setpoint_raw.y:"<<setpoint_raw.position.y<<std::endl;
     std::cout<< "setpoint_raw.z:"<<setpoint_raw.position.z<<std::endl;
     std::cout<< "setpoint_raw.yaw:"<<setpoint_raw.yaw<<std::endl;
-    std::cout<<"now_target_text:"<<target_text<<std::endl;
-    std::cout<<"front_where:"<<front_where<<std::endl;
-
-    ROS_INFO("Vector Size: %d", test_v.size());
-    for(int i=0;i<test_v.size();++i){
-        ROS_WARN("Vector Element %d: %s, first x: %f",i, test_v[i].text.c_str(), test_v[i].polygon[0].x);
-    }
 }
 
 int main(int argc, char **argv)
@@ -60,8 +53,10 @@ int main(int argc, char **argv)
     // 创建一个Subscriber订阅者，订阅名为/mavros/local_position/odom的topic，注册回调函数local_pos_cb
     ros::Subscriber local_pos_sub = nh.subscribe<nav_msgs::Odometry>("/mavros/local_position/odom", 10, local_pos_cb);
 
-    // 订阅二维码实时位置信息
-    ros::Subscriber ar_pos_sub = nh.subscribe("/ar_pose_marker", 100, ar_marker_cb);
+
+    // 发布无人机多维控制话题
+    ros::Publisher mavros_setpoint_pos_pub = nh.advertise<mavros_msgs::PositionTarget>("/mavros/setpoint_raw/local", 100);
+
 
     // 创建一个服务客户端，连接名为/mavros/cmd/arming的服务，用于请求无人机解锁
     ros::ServiceClient arming_client = nh.serviceClient<mavros_msgs::CommandBool>("mavros/cmd/arming");
@@ -284,8 +279,6 @@ int main(int argc, char **argv)
                 break;
         }
         mavros_setpoint_pos_pub.publish(setpoint_raw);
-        ocr_ctrl_down_pub.publish(ocr_ctrl_down_msg);
-        ocr_ctrl_front_pub.publish(ocr_ctrl_front_msg);
         print_publish();
         ros::spinOnce();
         rate.sleep();

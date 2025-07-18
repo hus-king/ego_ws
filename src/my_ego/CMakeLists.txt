@@ -223,7 +223,7 @@ link_directories(
   ${catkin_LIB_DIRS}
 )
 
-add_executable(my_ego src/ego_planner.cpp)
+add_executable(ego_planner src/ego_planner.cpp)
 target_link_libraries(ego_planner ${catkin_LIBRARIES} lib)
 
 
