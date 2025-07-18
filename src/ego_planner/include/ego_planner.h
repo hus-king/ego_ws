@@ -18,7 +18,6 @@
 #include <geometry_msgs/Twist.h>
 #include <ar_track_alvar_msgs/AlvarMarkers.h>
 #include "quadrotor_msgs/PositionCommand.h"
-#include <paddle_ocr_ros/OCRResult.h>
 
 using namespace std;
 
