@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(complete_mission)
+project(my_ego)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -223,16 +223,7 @@ link_directories(
   ${catkin_LIB_DIRS}
 )
 
-# add_executable(complete_mission src/complete_mission.cpp)
-# target_link_libraries(complete_mission ${catkin_LIBRARIES} lib)
-
-# add_executable(complete_mission_ego src/complete_mission_ego.cpp)
-# target_link_libraries(complete_mission_ego ${catkin_LIBRARIES} lib)
-
-# add_executable(complete_mission_all src/complete_mission_all.cpp)
-# target_link_libraries(complete_mission_all ${catkin_LIBRARIES} lib)
-
-add_executable(ego_planner src/ego_planner.cpp)
+add_executable(my_ego src/ego_planner.cpp)
 target_link_libraries(ego_planner ${catkin_LIBRARIES} lib)
 
 

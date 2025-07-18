@@ -10,15 +10,15 @@ tmux send-keys -t ros_session:0 'roscore' C-m
 
 # Pane 1: 定位系统
 tmux split-window -h -t ros_session:0
-tmux send-keys -t ros_session:0.1 'sleep 3; roslaunch ego_planner location.launch' C-m
+tmux send-keys -t ros_session:0.1 'sleep 3; roslaunch my_ego location.launch' C-m
 
 # Pane 2: EGO规划器
 tmux split-window -v -t ros_session:0.1
-tmux send-keys -t ros_session:0.2 'sleep 5; roslaunch ego_planner ego_planner_mid360.launch' C-m
+tmux send-keys -t ros_session:0.2 'sleep 5; roslaunch my_ego ego_planner_mid360.launch' C-m
 
 # Pane 3: 激光雷达坐标转换
 tmux split-window -v -t ros_session:0.0
-tmux send-keys -t ros_session:0.3 'sleep 6; rosrun ego_planner laser_to_worldframe' C-m
+tmux send-keys -t ros_session:0.3 'sleep 6; rosrun my_ego laser_to_worldframe' C-m
 
 # 整理主窗口布局
 tmux select-layout -t ros_session:0 tiled
@@ -33,7 +33,7 @@ tmux send-keys -t ros_session:1 'sleep 4; rostopic echo /mavros/local_position/p
 
 # Pane 1: EGO规划器任务启动
 tmux split-window -v -t ros_session:1
-tmux send-keys -t ros_session:1.1 'sleep 7; roslaunch ego_planner ego_planner.launch' C-m
+tmux send-keys -t ros_session:1.1 'sleep 7; roslaunch my_ego ego_planner.launch' C-m
 
 # 整理监控窗口布局
 tmux select-layout -t ros_session:1 tiled

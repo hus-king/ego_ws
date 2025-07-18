@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>ego_planner</name>
+  <name>my_ego</name>
   <version>0.0.0</version>
-  <description>The ego_planner package</description>
+  <description>The my_ego package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->

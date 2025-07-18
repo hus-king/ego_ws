@@ -1,6 +1,6 @@
 <launch>
   <!-- ego_planner 仿真 -->
-  <include file="$(find complete_mission)/launch/advanced_param.xml">
+  <include file="$(find my_ego)/launch/advanced_param.xml">
     <!-- 地图尺寸 -->
     <arg name="map_size_x_" value="50.0"/>
     <arg name="map_size_y_" value="50.0"/>
@@ -63,7 +63,7 @@
     <param name="traj_server/limit_yaw_change" value="0.7" type="double"/>
   </node>
 
-  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find complete_mission)/launch/ego.rviz" required="true" />
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find my_ego)/launch/ego.rviz" required="true" />
   
 </launch>
 
