@@ -14,9 +14,7 @@
 #include <tf/transform_listener.h>
 #include <nav_msgs/Odometry.h>
 #include <mavros_msgs/CommandLong.h>
-#include <string>
 #include <geometry_msgs/Twist.h>
-#include <ar_track_alvar_msgs/AlvarMarkers.h>
 #include "quadrotor_msgs/PositionCommand.h"
 
 using namespace std;
@@ -694,7 +692,7 @@ void precision_land()
 }
 
 /************************************************************************
-函数功能:ego_planner导航
+函数功能15:ego_planner导航
 //1、定义变量
 //2、函数声明
 //3、函数定义
@@ -707,7 +705,7 @@ void ego_sub_cb(const quadrotor_msgs::PositionCommand::ConstPtr &msg)
 }
 
 /************************************************************************
-函数功能: ego_planner是否规划出航线
+函数功能16: ego_planner是否规划出航线
 //1、定义变量
 //2、函数声明
 //3、函数定义
@@ -734,7 +732,7 @@ void PI_attitude_control()
 }
 
 /************************************************************************
-函数功能:ego_planner发布目标点函数
+函数功能17:ego_planner发布目标点函数
 //1、定义变量
 //2、函数声明
 //3、函数定义

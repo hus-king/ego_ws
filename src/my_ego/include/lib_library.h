@@ -16,8 +16,9 @@
 #include <tf/transform_listener.h>
 #include <nav_msgs/Odometry.h>
 #include <mavros_msgs/CommandLong.h>   
-#include <string>
 #include <geometry_msgs/Twist.h>
+#include <std_msgs/String.h>
+
 
 
  
