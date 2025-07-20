@@ -15,6 +15,7 @@
 #include <nav_msgs/Odometry.h>
 #include <mavros_msgs/CommandLong.h>
 #include <geometry_msgs/Twist.h>
+#include <ar_track_alvar_msgs/AlvarMarkers.h>
 #include "quadrotor_msgs/PositionCommand.h"
 
 using namespace std;
@@ -31,9 +32,11 @@ float ground_height = 0.3;
 
 /************************************************************************
 函数功能1：无人机状态回调函数
-//1、定义变量
-//2、函数声明
-//3、函数定义
+功能描述：接收并处理MAVROS状态信息，更新无人机连接状态、飞行模式等
+输入参数：
+  - msg: mavros_msgs::State::ConstPtr 类型，包含无人机状态信息
+返回值：无
+使用说明：作为ROS订阅者回调函数，自动接收/mavros/state话题数据
 *************************************************************************/
 mavros_msgs::State current_state;
 void state_cb(const mavros_msgs::State::ConstPtr &msg);
@@ -44,10 +47,13 @@ void state_cb(const mavros_msgs::State::ConstPtr &msg)
 }
 
 /************************************************************************
-函数功能2：回调函数接收无人机的里程计信息
-//1、定义变量
-//2、函数声明
-//3、函数定义
+函数功能2：无人机里程计信息回调函数
+功能描述：接收并处理无人机位置、姿态信息，进行四元数到欧拉角转换，记录起飞初始位置
+输入参数：
+  - msg: nav_msgs::Odometry::ConstPtr 类型，包含位置、速度、姿态信息
+返回值：无
+使用说明：作为ROS订阅者回调函数，自动接收/mavros/local_position/odom话题数据
+          首次接收到有效高度数据时会记录起飞初始位置作为参考点
 *************************************************************************/
 tf::Quaternion quat;
 nav_msgs::Odometry local_pos;
@@ -75,10 +81,16 @@ void local_pos_cb(const nav_msgs::Odometry::ConstPtr &msg)
 
 
 /************************************************************************
-函数功能3：自主巡航，发布目标位置，控制无人机到达目标，采用local坐标系位置控制
-//1、定义变量
-//2、函数声明
-//3、函数定义
+函数功能3：自主巡航位置控制函数
+功能描述：控制无人机飞行到指定目标点，采用local坐标系位置控制模式
+输入参数：
+  - x: float 类型，目标点X坐标(相对于起飞点)
+  - y: float 类型，目标点Y坐标(相对于起飞点)  
+  - z: float 类型，目标点Z坐标(相对于起飞点)
+  - yaw: float 类型，目标偏航角(弧度)
+  - error_max: float 类型，位置误差阈值，小于此值认为到达目标
+返回值：bool 类型，true表示已到达目标点，false表示仍在飞行中
+使用说明：函数会自动记录初始位置，目标坐标会加上起飞点偏移量转换为绝对坐标
 *************************************************************************/
 float mission_pos_cruise_last_position_x = 0;
 float mission_pos_cruise_last_position_y = 0;
@@ -111,10 +123,16 @@ bool mission_pos_cruise(float x, float y, float z, float yaw, float error_max)
 }
 
 /************************************************************************
-函数功能4：自主巡航，发布目标位置，控制无人机到达目标，采用机体坐标系位置控制
-//1、定义变量
-//2、函数声明
-//3、函数定义
+函数功能4：机体坐标系相对位置控制函数
+功能描述：控制无人机相对当前位置移动指定距离，采用机体坐标系位置控制
+输入参数：
+  - x: float 类型，相对于当前位置的X轴偏移量
+  - y: float 类型，相对于当前位置的Y轴偏移量
+  - z: float 类型，目标绝对高度
+  - yaw: float 类型，目标偏航角(弧度)
+  - error_max: float 类型，位置误差阈值，小于此值认为到达目标
+返回值：bool 类型，true表示已到达目标点，false表示仍在飞行中
+使用说明：函数在首次调用时记录起始位置，后续以此为基准进行相对移动控制
 *************************************************************************/
 float current_position_cruise_last_position_x = 0;
 float current_position_cruise_last_position_y = 0;
@@ -152,10 +170,12 @@ bool current_position_cruise(float x, float y, float z, float yaw, float error_m
 }
 
 /************************************************************************
-函数功能5: 获取yolo识别目标的位置信息
-//1、定义变量
-//2、函数声明
-//3、函数定义
+函数功能5: YOLO目标识别位置信息回调函数
+功能描述：接收YOLO检测到的目标物体在图像中的位置信息
+输入参数：
+  - msg: geometry_msgs::PointStamped::ConstPtr 类型，包含目标物体位置信息
+返回值：无
+使用说明：作为ROS订阅者回调函数，用于获取视觉检测结果的位置数据
 *************************************************************************/
 geometry_msgs::PointStamped object_pos;
 double position_detec_x = 0;
@@ -168,10 +188,16 @@ void object_pos_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
 }
 
 /************************************************************************
-函数功能6: 目标识别，采用速度控制运动，任务是识别到目标后，保持无人机正对着目标
-//1、定义变量
-//2、函数声明
-//3、函数定义
+函数功能6: 目标识别与速度跟踪控制函数
+功能描述：基于视觉识别结果，采用速度控制使无人机保持在目标正上方/前方
+输入参数：
+  - str: string 类型，目标识别字符串，用于匹配特定目标
+  - yaw: float 类型，期望偏航角(弧度)
+  - altitude: float 类型，飞行高度(相对于起飞点)
+  - speed: float 类型，调整速度大小
+  - error_max: float 类型，图像中心偏差阈值，小于此值认为对准目标
+返回值：bool 类型，true表示已对准目标，false表示仍在调整中
+使用说明：假设摄像头向下安装，图像中心为(320,240)，函数会自动调整XY速度使目标居中
 *************************************************************************/
 float object_recognize_track_vel_last_time_position_x = 0;
 float object_recognize_track_vel_last_time_position_y = 0;
@@ -250,10 +276,17 @@ bool object_recognize_track_vel(string str, float yaw, float altitude, float spe
 }
 
 /************************************************************************
-函数功能7: //无人机追踪，仅水平即Y方向，通常用于无人机穿越圆框、方框等使用
-//1、定义变量
-//2、函数声明
-//3、函数定义
+函数功能7: 单方向目标跟踪控制函数
+功能描述：基于视觉识别结果，仅在Y轴(水平)方向进行位置跟踪，常用于穿越圆框、方框等场景
+输入参数：
+  - str: string 类型，目标识别字符串，用于匹配特定目标
+  - yaw: float 类型，期望偏航角(弧度)
+  - reverse: int 类型，反向控制标志，1为正向，-1为反向
+  - altitude: float 类型，飞行高度
+  - error_max: float 类型，图像中心偏差阈值，小于此值认为对准目标
+  - ctrl_coef: float 类型，控制系数，影响调整幅度
+返回值：bool 类型，true表示已对准目标，false表示仍在调整中
+使用说明：仅控制Y轴方向，X轴保持初始位置，适用于需要精确水平对齐的场景
 *************************************************************************/
 float object_recognize_track_last_time_position_x = 0;
 float object_recognize_track_last_time_position_y = 0;
@@ -313,10 +346,17 @@ bool object_recognize_track(string str, float yaw, int reverse, float altitude, 
 }
 
 /************************************************************************
-函数功能8: //无人机追踪，仅水平即Y方向，通常用于无人机穿越圆框、方框等使用
-//1、定义变量
-//2、函数声明
-//3、函数定义
+函数功能8: 全方向目标跟踪控制函数
+功能描述：基于视觉识别结果，在X、Y两个方向同时进行位置跟踪，实现全方位对准
+输入参数：
+  - str: string 类型，目标识别字符串，用于匹配特定目标
+  - yaw: float 类型，期望偏航角(弧度)
+  - reverse: int 类型，反向控制标志，1为正向，-1为反向
+  - altitude: float 类型，飞行高度
+  - error_max: float 类型，图像中心偏差阈值，小于此值认为对准目标
+  - ctrl_coef: float 类型，控制系数，影响调整幅度
+返回值：bool 类型，true表示已对准目标，false表示仍在调整中
+使用说明：同时控制X、Y轴方向，实现精确的二维位置跟踪，适用于精准降落等场景
 *************************************************************************/
 float object_recognize_track_omni_last_time_position_x = 0;
 float object_recognize_track_omni_last_time_position_y = 0;
@@ -386,10 +426,13 @@ bool object_recognize_track_omni(string str, float yaw, int reverse, float altit
 }
 
 /************************************************************************
-函数功能9: 用于接收二维码识别返回值
-//1、定义变量
-//2、函数声明
-//3、函数定义
+函数功能9: 二维码识别信息回调函数
+功能描述：接收并处理AR标签检测结果，更新二维码位置和ID信息
+输入参数：
+  - msg: ar_track_alvar_msgs::AlvarMarkers::ConstPtr 类型，包含检测到的所有AR标签信息
+返回值：无
+使用说明：作为ROS订阅者回调函数，自动接收/ar_pose_marker话题数据
+          当检测到标签时设置marker_found为true，否则为false
 *************************************************************************/
 ar_track_alvar_msgs::AlvarMarker marker;
 float marker_x = 0, marker_y = 0, marker_z = 0;
@@ -415,10 +458,16 @@ void ar_marker_cb(const ar_track_alvar_msgs::AlvarMarkers::ConstPtr &msg)
 }
 
 /************************************************************************
-函数功能10: 二维码降落,此处代码尚未实际验证，待验证
-//1、定义变量
-//2、函数声明
-//3、函数定义
+函数功能10: 二维码精准降落控制函数
+功能描述：基于AR标签识别结果，控制无人机精确降落到指定二维码上方
+输入参数：
+  - marker_error_max: float 类型，标签中心偏差阈值，小于此值认为对准
+  - ar_track_id: int 类型，目标AR标签的ID号
+  - altitude: float 类型，当前飞行高度
+  - flag: int 类型，控制模式标志(默认为0，可选1为反向，2为偏移模式)
+返回值：bool 类型，true表示已对准目标可以降落，false表示仍在调整中
+使用说明：函数会根据检测到的AR标签位置调整无人机位置，实现精准降落
+          代码尚未完全验证，实际使用时需要进一步测试验证
 *************************************************************************/
 float ar_lable_land_last_position_x = 0;
 float ar_lable_land_last_position_y = 0;
@@ -567,10 +616,15 @@ bool ar_lable_land(float marker_error_max, int ar_track_id, float altitude, int 
 }
 
 /************************************************************************
-函数功能11: move_base速度转换
-//1、定义变量
-//2、函数声明
-//3、函数定义
+函数功能11: MoveBase导航避障控制函数
+功能描述：使用ROS navigation stack进行路径规划和避障导航到目标点
+输入参数：
+  - x: float 类型，目标点X坐标(地图坐标系)
+  - y: float 类型，目标点Y坐标(地图坐标系)
+  - z: float 类型，目标点Z坐标(通常不使用)
+  - yaw: float 类型，目标偏航角(弧度)
+返回值：bool 类型，true表示已到达目标点，false表示仍在导航中
+使用说明：首次调用时发布导航目标，后续检查是否到达，适用于复杂环境的避障导航
 *************************************************************************/
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 bool mission_obs_avoid_flag = false;
@@ -606,10 +660,13 @@ bool mission_obs_avoid(float x, float y, float z, float yaw)
 }
 
 /************************************************************************
-函数功能12: move_base
-//1、定义变量
-//2、函数声明
-//3、函数定义
+函数功能12: MoveBase速度指令转换函数
+功能描述：将MoveBase发布的速度指令转换为PX4飞控可识别的控制指令
+输入参数：
+  - msg: geometry_msgs::Twist 类型，包含线速度和角速度指令
+返回值：无
+使用说明：作为ROS订阅者回调函数，当导航避障功能启用时自动转换速度指令
+          转换后的指令通过setpoint_raw发布给飞控执行
 *************************************************************************/
 void cmd_to_px4(const geometry_msgs::Twist &msg);
 void cmd_to_px4(const geometry_msgs::Twist &msg)
@@ -628,10 +685,16 @@ void cmd_to_px4(const geometry_msgs::Twist &msg)
 }
 
 /************************************************************************
-函数功能13: 穿越圆框，发布圆框后方目标点，效果良好，有时间以后可以继续优化
-//1、定义变量
-//2、函数声明
-//3、函数定义
+函数功能13: 穿越障碍物控制函数
+功能描述：控制无人机穿越圆框等障碍物，通过发布障碍物后方目标点实现穿越
+输入参数：
+  - pos_x: float 类型，相对于起始位置的X轴偏移量
+  - pos_y: float 类型，相对于起始位置的Y轴偏移量
+  - z: float 类型，目标绝对高度
+  - yaw: float 类型，目标偏航角(弧度)
+返回值：bool 类型，true表示已穿越到目标点，false表示仍在飞行中
+使用说明：函数效果良好，记录初始位置后控制飞行到相对位置，适用于障碍物穿越场景
+          后续可根据需要继续优化算法
 *************************************************************************/
 float target_through_init_position_x = 0;
 float target_through_init_position_y = 0;
@@ -667,10 +730,12 @@ bool target_through(float pos_x, float pos_y, float z, float yaw)
 }
 
 /************************************************************************
-函数功能14:降落
-//1、定义变量
-//2、函数声明
-//3、函数定义
+函数功能14: 精准降落控制函数
+功能描述：控制无人机在当前位置垂直下降至地面进行精准降落
+输入参数：无
+返回值：无
+使用说明：函数会记录当前X、Y位置并保持不变，仅降低Z轴高度至-0.15米
+          适用于需要在特定位置精确降落的场景
 *************************************************************************/
 float precision_land_init_position_x = 0;
 float precision_land_init_position_y = 0;
@@ -692,10 +757,12 @@ void precision_land()
 }
 
 /************************************************************************
-函数功能15:ego_planner导航
-//1、定义变量
-//2、函数声明
-//3、函数定义
+函数功能15: EGO规划器位置指令回调函数
+功能描述：接收EGO路径规划器发布的位置和速度指令
+输入参数：
+  - msg: quadrotor_msgs::PositionCommand::ConstPtr 类型，包含目标位置、速度、偏航角等信息
+返回值：无
+使用说明：作为ROS订阅者回调函数，接收/position_cmd话题的路径规划结果
 *************************************************************************/
 quadrotor_msgs::PositionCommand ego_sub;
 void ego_sub_cb(const quadrotor_msgs::PositionCommand::ConstPtr &msg);
@@ -705,10 +772,13 @@ void ego_sub_cb(const quadrotor_msgs::PositionCommand::ConstPtr &msg)
 }
 
 /************************************************************************
-函数功能16: ego_planner是否规划出航线
-//1、定义变量
-//2、函数声明
-//3、函数定义
+函数功能16: EGO规划器轨迹接收状态回调函数
+功能描述：接收EGO规划器是否成功规划出可行轨迹的状态信息
+输入参数：
+  - msg: std_msgs::Bool::ConstPtr 类型，true表示已规划出轨迹，false表示未规划出轨迹
+返回值：无
+使用说明：作为ROS订阅者回调函数，接收/rec_traj话题的规划状态
+          用于判断是否可以执行轨迹跟踪控制
 *************************************************************************/
 bool rec_traj_flag = false;
 void rec_traj_cb(const std_msgs::Bool::ConstPtr &msg);
@@ -732,10 +802,17 @@ void PI_attitude_control()
 }
 
 /************************************************************************
-函数功能17:ego_planner发布目标点函数
-//1、定义变量
-//2、函数声明
-//3、函数定义
+函数功能17: EGO规划器目标点发布与跟踪控制函数
+功能描述：发布EGO规划器目标点并执行轨迹跟踪控制，实现智能路径规划和飞行
+输入参数：
+  - x: float 类型，目标点X坐标(世界坐标系)
+  - y: float 类型，目标点Y坐标(世界坐标系)
+  - z: float 类型，目标点Z坐标(世界坐标系)
+  - err_max: float 类型，位置误差阈值，小于此值认为到达目标
+  - first_target: int 类型，特殊目标标志(默认0，可选1或2用于特定偏航角控制)
+返回值：bool 类型，true表示已到达目标点，false表示仍在飞行中
+使用说明：结合EGO规划器进行避障路径规划，包含PI控制器进行轨迹跟踪
+          支持高度限制和地面高度保护，确保飞行安全
 *************************************************************************/
 float before_ego_pose_x = 0;
 float before_ego_pose_y = 0;
