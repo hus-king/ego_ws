@@ -15,7 +15,6 @@
 #include <nav_msgs/Odometry.h>
 #include <mavros_msgs/CommandLong.h>
 #include <geometry_msgs/Twist.h>
-#include <ar_track_alvar_msgs/AlvarMarkers.h>
 #include "quadrotor_msgs/PositionCommand.h"
 
 using namespace std;
@@ -426,197 +425,7 @@ bool object_recognize_track_omni(string str, float yaw, int reverse, float altit
 }
 
 /************************************************************************
-函数功能9: 二维码识别信息回调函数
-功能描述：接收并处理AR标签检测结果，更新二维码位置和ID信息
-输入参数：
-  - msg: ar_track_alvar_msgs::AlvarMarkers::ConstPtr 类型，包含检测到的所有AR标签信息
-返回值：无
-使用说明：作为ROS订阅者回调函数，自动接收/ar_pose_marker话题数据
-          当检测到标签时设置marker_found为true，否则为false
-*************************************************************************/
-ar_track_alvar_msgs::AlvarMarker marker;
-float marker_x = 0, marker_y = 0, marker_z = 0;
-bool marker_found = false;
-int ar_track_id_current = 0;
-void ar_marker_cb(const ar_track_alvar_msgs::AlvarMarkers::ConstPtr &msg);
-void ar_marker_cb(const ar_track_alvar_msgs::AlvarMarkers::ConstPtr &msg)
-{
-    int count = msg->markers.size();
-    if (count != 0)
-    {
-        marker_found = true;
-        for (int i = 0; i < count; i++)
-        {
-            marker = msg->markers[i];
-            ar_track_id_current = marker.id;
-        }
-    }
-    else
-    {
-        marker_found = false;
-    }
-}
-
-/************************************************************************
-函数功能10: 二维码精准降落控制函数
-功能描述：基于AR标签识别结果，控制无人机精确降落到指定二维码上方
-输入参数：
-  - marker_error_max: float 类型，标签中心偏差阈值，小于此值认为对准
-  - ar_track_id: int 类型，目标AR标签的ID号
-  - altitude: float 类型，当前飞行高度
-  - flag: int 类型，控制模式标志(默认为0，可选1为反向，2为偏移模式)
-返回值：bool 类型，true表示已对准目标可以降落，false表示仍在调整中
-使用说明：函数会根据检测到的AR标签位置调整无人机位置，实现精准降落
-          代码尚未完全验证，实际使用时需要进一步测试验证
-*************************************************************************/
-float ar_lable_land_last_position_x = 0;
-float ar_lable_land_last_position_y = 0;
-bool ar_lable_land_init_position_flag = false;
-float track_speed = 0;
-bool ar_lable_land(float marker_error_max, int ar_track_id, float altitude, int flag = 0);
-bool ar_lable_land(float marker_error_max, int ar_track_id, float altitude, int flag)
-{
-    if (ar_lable_land_init_position_flag == false)
-    {
-        ar_lable_land_last_position_x = local_pos.pose.pose.position.x;
-        ar_lable_land_last_position_y = local_pos.pose.pose.position.y;
-        ar_lable_land_init_position_flag = true;
-        ROS_INFO("进入二维码识别和降落");
-    }
-    // 识别到指定的id才进入这个循环，否则不控制
-    if (marker.id == ar_track_id && (marker.id != 0))
-    {
-        // 此处根本摄像头安装方向，进行静态坐标转换
-        marker_x = marker.pose.pose.position.x;
-        marker_y = marker.pose.pose.position.y;
-        marker_z = marker.pose.pose.position.z;
-
-        printf("ar_track_id = %d\r\n", ar_track_id);
-        printf("marker_x = %f\r\n", marker_x);
-        printf("marker_y = %f\r\n", marker_y);
-        printf("marker_z = %f\r\n", marker_z);
-        printf("track_speed = %f\r\n", track_speed);
-
-        ar_lable_land_last_position_x = local_pos.pose.pose.position.x;
-        ar_lable_land_last_position_y = local_pos.pose.pose.position.y;
-
-        float tmp_marker_x = marker_x;
-        float tmp_marker_y = marker_y;
-        if (flag == 2)
-        {
-            tmp_marker_y += -0.07;
-        }
-
-        if (fabs(tmp_marker_x) < marker_error_max && fabs(tmp_marker_y) < marker_error_max)
-        {
-            ar_lable_land_init_position_flag = false;
-            ROS_INFO("到达目标的正上/前方");
-            return true;
-        }
-        else
-        {
-            if (flag != 2)
-            {
-                // 摄像头朝下安装，因此摄像头的Z对应无人机的X前后方向，Y对应Y左右方向，Z对应上下
-                // 无人机左右移动速度控制
-                if (marker_x >= marker_error_max)
-                {
-                    // setpoint_raw.position.y = local_pos.pose.pose.position.y - 0.1;
-                    setpoint_raw.velocity.y = -track_speed;
-                }
-                else if (marker_x <= -marker_error_max)
-                {
-                    // setpoint_raw.position.y = local_pos.pose.pose.position.y + 0.1;
-                    setpoint_raw.velocity.y = track_speed;
-                }
-                else
-                {
-                    // setpoint_raw.position.y = ar_lable_land_last_position_y;
-                    setpoint_raw.velocity.y = 0;
-                }
-                // 无人机前后移动速度控制
-                if (marker_y >= marker_error_max)
-                {
-                    // setpoint_raw.position.x = local_pos.pose.pose.position.x - 0.1;
-                    setpoint_raw.velocity.x = -track_speed;
-                }
-                else if (marker_y <= -marker_error_max)
-                {
-                    // setpoint_raw.position.x = local_pos.pose.pose.position.x + 0.1;
-                    setpoint_raw.velocity.x = track_speed;
-                }
-                else
-                {
-                    // setpoint_raw.position.x = ar_lable_land_last_position_x;
-                    setpoint_raw.velocity.x = 0;
-                }
-                if (flag)
-                {
-                    std::cout << "reverse" << std::endl;
-                    setpoint_raw.velocity.x = -setpoint_raw.velocity.x;
-                    setpoint_raw.velocity.y = -setpoint_raw.velocity.y;
-                }
-            }
-            else
-            {
-                // 摄像头朝下安装，因此摄像头的Z对应无人机的X前后方向，Y对应Y左右方向，Z对应上下
-                // 无人机左右移动速度控制
-                if (marker_x >= marker_error_max)
-                {
-                    // setpoint_raw.position.y = local_pos.pose.pose.position.y - 0.1;
-                    setpoint_raw.velocity.y = -track_speed;
-                }
-                else if (marker_x <= -marker_error_max)
-                {
-                    // setpoint_raw.position.y = local_pos.pose.pose.position.y + 0.1;
-                    setpoint_raw.velocity.y = track_speed;
-                }
-                else
-                {
-                    // setpoint_raw.position.y = ar_lable_land_last_position_y;
-                    setpoint_raw.velocity.y = 0;
-                }
-                // 无人机前后移动速度控制
-                if (marker_y >= marker_error_max + 0.07)
-                {
-                    // setpoint_raw.position.x = local_pos.pose.pose.position.x - 0.1;
-                    setpoint_raw.velocity.x = -track_speed;
-                }
-                else if (marker_y <= -marker_error_max + 0.07)
-                {
-                    // setpoint_raw.position.x = local_pos.pose.pose.position.x + 0.1;
-                    setpoint_raw.velocity.x = track_speed;
-                }
-                else
-                {
-                    // setpoint_raw.position.x = ar_lable_land_last_position_x;
-                    setpoint_raw.velocity.x = 0;
-                }
-            }
-        }
-        setpoint_raw.type_mask = 1 + 2 + /* 4 + 8 + 16 +*/ 32 + 64 + 128 + 256 + 512 /*+ 1024 */ + 2048;
-    }
-    else
-    {
-        setpoint_raw.position.x = ar_lable_land_last_position_x;
-        setpoint_raw.position.y = ar_lable_land_last_position_y;
-        setpoint_raw.type_mask = /*1 + 2 + 4*/ +8 + 16 + 32 + 64 + 128 + 256 + 512 /*+ 1024 */ + 2048;
-    }
-    // setpoint_raw.type_mask = /*1 + 2 + 4 + 8 + 16 + 32 +*/ 64 + 128 + 256 + 512 /*+ 1024 */+ 2048;
-    setpoint_raw.position.z = altitude;
-    setpoint_raw.coordinate_frame = 1;
-
-    double current_yaw, a, b;
-    tf::Quaternion quat;
-    tf::quaternionMsgToTF(local_pos.pose.pose.orientation, quat);
-    tf::Matrix3x3(quat).getRPY(a, b, current_yaw);
-
-    setpoint_raw.yaw = current_yaw;
-    return false;
-}
-
-/************************************************************************
-函数功能11: MoveBase导航避障控制函数
+函数功能10: MoveBase导航避障控制函数
 功能描述：使用ROS navigation stack进行路径规划和避障导航到目标点
 输入参数：
   - x: float 类型，目标点X坐标(地图坐标系)
@@ -660,7 +469,7 @@ bool mission_obs_avoid(float x, float y, float z, float yaw)
 }
 
 /************************************************************************
-函数功能12: MoveBase速度指令转换函数
+函数功能11: MoveBase速度指令转换函数
 功能描述：将MoveBase发布的速度指令转换为PX4飞控可识别的控制指令
 输入参数：
   - msg: geometry_msgs::Twist 类型，包含线速度和角速度指令
@@ -685,7 +494,7 @@ void cmd_to_px4(const geometry_msgs::Twist &msg)
 }
 
 /************************************************************************
-函数功能13: 穿越障碍物控制函数
+函数功能12: 穿越障碍物控制函数
 功能描述：控制无人机穿越圆框等障碍物，通过发布障碍物后方目标点实现穿越
 输入参数：
   - pos_x: float 类型，相对于起始位置的X轴偏移量
@@ -730,7 +539,7 @@ bool target_through(float pos_x, float pos_y, float z, float yaw)
 }
 
 /************************************************************************
-函数功能14: 精准降落控制函数
+函数功能13: 精准降落控制函数
 功能描述：控制无人机在当前位置垂直下降至地面进行精准降落
 输入参数：无
 返回值：无
@@ -757,7 +566,7 @@ void precision_land()
 }
 
 /************************************************************************
-函数功能15: EGO规划器位置指令回调函数
+函数功能14: EGO规划器位置指令回调函数
 功能描述：接收EGO路径规划器发布的位置和速度指令
 输入参数：
   - msg: quadrotor_msgs::PositionCommand::ConstPtr 类型，包含目标位置、速度、偏航角等信息
@@ -772,7 +581,7 @@ void ego_sub_cb(const quadrotor_msgs::PositionCommand::ConstPtr &msg)
 }
 
 /************************************************************************
-函数功能16: EGO规划器轨迹接收状态回调函数
+函数功能15: EGO规划器轨迹接收状态回调函数
 功能描述：接收EGO规划器是否成功规划出可行轨迹的状态信息
 输入参数：
   - msg: std_msgs::Bool::ConstPtr 类型，true表示已规划出轨迹，false表示未规划出轨迹
@@ -802,7 +611,7 @@ void PI_attitude_control()
 }
 
 /************************************************************************
-函数功能17: EGO规划器目标点发布与跟踪控制函数
+函数功能16: EGO规划器目标点发布与跟踪控制函数
 功能描述：发布EGO规划器目标点并执行轨迹跟踪控制，实现智能路径规划和飞行
 输入参数：
   - x: float 类型，目标点X坐标(世界坐标系)
