@@ -4,8 +4,8 @@ int mission_num = 0;  //确定当前任务
 
 float target1_x = 1, target1_y = 0;
 float target2_x = 1, target2_y = 1;
-float target3_x = 0, target3_y = 1;
-float target4_x = 0, target4_y = 0;
+float target3_x = 0,target3_y = 1;
+float target4_x = 0,target4_y = 0;
 
 
 float err_max = 0.1;
@@ -37,26 +37,14 @@ int main(int argc, char **argv)
     // 创建节点句柄
     ros::NodeHandle nh;
 
-    // 订阅ego_planner规划出来的结果
-    ros::Subscriber ego_sub = nh.subscribe("/position_cmd", 100, ego_sub_cb);
-
-    // 发布ego_planner目标
-    planner_goal_pub = nh.advertise<geometry_msgs::PoseStamped>("/ego_planner/goal", 100);
-
-    ros::Subscriber rec_traj_sub = nh.subscribe("/rec_traj", 100, rec_traj_cb);
-
-    finish_ego_pub = nh.advertise<std_msgs::Bool>("/finish_ego", 1);
-
     // 创建一个Subscriber订阅者，订阅名为/mavros/state的topic，注册回调函数state_cb
     ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("mavros/state", 10, state_cb);
 
     // 创建一个Subscriber订阅者，订阅名为/mavros/local_position/odom的topic，注册回调函数local_pos_cb
     ros::Subscriber local_pos_sub = nh.subscribe<nav_msgs::Odometry>("/mavros/local_position/odom", 10, local_pos_cb);
 
-
     // 发布无人机多维控制话题
     ros::Publisher mavros_setpoint_pos_pub = nh.advertise<mavros_msgs::PositionTarget>("/mavros/setpoint_raw/local", 100);
-
 
     // 创建一个服务客户端，连接名为/mavros/cmd/arming的服务，用于请求无人机解锁
     ros::ServiceClient arming_client = nh.serviceClient<mavros_msgs::CommandBool>("mavros/cmd/arming");
@@ -155,7 +143,7 @@ int main(int argc, char **argv)
         setpoint_raw.position.z = ALTITUDE;
         setpoint_raw.yaw = 0;
 
-        if(mission_pos_cruise(0, 0, ALTITUDE, 0, 0.2)) {//不开避障，世界坐标系控制移动
+        if(mission_pos_cruise(0, 0, ALTITUDE, 0, err_max)) {//不开避障，世界坐标系控制移动
             mission_num = 1; //开始任务
             break;
         }
@@ -202,8 +190,8 @@ int main(int argc, char **argv)
                 }
                 break;
 
-            case 10://ego_planner导航point1
-                if (pub_ego_goal(target1_x, target1_y, ALTITUDE, err_max, 0)){
+            case 10://mission_pos_cruise导航point1
+                if (mission_pos_cruise(target1_x, target1_y, ALTITUDE, 0, err_max)){
                     if (lib_time_record_func(0.5, ros::Time::now())){
                         mission_num = 11;
                         last_request = ros::Time::now();
@@ -216,8 +204,8 @@ int main(int argc, char **argv)
                 }
                 break;
 
-            case 11://ego_planner导航point2
-                if (pub_ego_goal(target2_x, target2_y, ALTITUDE, err_max, 0)){
+            case 11://mission_pos_cruise导航point2
+                if (mission_pos_cruise(target2_x, target2_y, ALTITUDE, 0, err_max)){
                     if (lib_time_record_func(0.5, ros::Time::now()))
                     {
                         mission_num = 12;
@@ -231,8 +219,8 @@ int main(int argc, char **argv)
                 }
                 break;
 
-            case 12://ego_planner导航point3
-                if (pub_ego_goal(target3_x, target3_y, ALTITUDE, err_max, 0)){
+            case 12://mission_pos_cruise导航point3
+                if (mission_pos_cruise(target3_x, target3_y, ALTITUDE, 0, err_max)){
                     if (lib_time_record_func(0.5, ros::Time::now())){
                         mission_num = 13;
                         last_request = ros::Time::now();
@@ -245,22 +233,22 @@ int main(int argc, char **argv)
                 }
                 break;
 
-            case 13://ego_planner导航point4
-                if (pub_ego_goal(target4_x, target4_y, ALTITUDE, err_max, 0)){
+            case 13://mission_pos_cruise导航point4
+                if (mission_pos_cruise(target4_x, target4_y, ALTITUDE, 0, err_max)){
                     if (lib_time_record_func(0.5, ros::Time::now())){
-                        mission_num = 100;  // 完成所有点后直接跳转到降落
+                        mission_num = 100;  // 直接跳转到降落任务
                         last_request = ros::Time::now();
                     }
                 }
                 else if(ros::Time::now() - last_request >= ros::Duration(5.0)){
-                    mission_num = 100;  // 超时也跳转到降落
+                    mission_num = 100;  // 超时也跳转到降落任务
                     last_request = ros::Time::now();
                     ROS_WARN("Timed out!!!!");
                 }
                 break;
 
             case 100:
-                if(mission_pos_cruise(0, 0, 0.05, 0, err_max))
+                if(mission_pos_cruise(0, 0, 0.05, 3.14, err_max))
                 {
                     if (lib_time_record_func(1.0, ros::Time::now())){
                         ROS_INFO("AUTO.LAND");

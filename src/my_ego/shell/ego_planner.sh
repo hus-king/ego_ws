@@ -11,19 +11,19 @@ tmux send-keys -t ros_session:0 'roscore' C-m
 
 # Pane 1: 定位系统
 tmux split-window -h -t ros_session:0
-tmux send-keys -t ros_session:0.1 'sleep 3; roslaunch my_ego location.launch' C-m
+tmux send-keys -t ros_session:0.1 'sleep 3; roslaunch abot_bringup location.launch' C-m
 
 # Pane 2: 深度相机
 tmux split-window -v -t ros_session:0.1
-tmux send-keys -t ros_session:0.2 'sleep 4; roslaunch my_ego gemini.launch' C-m
+tmux send-keys -t ros_session:0.2 'sleep 4; roslaunch astra_camera gemini.launch' C-m
 
 # Pane 3: EGO规划器
 tmux split-window -v -t ros_session:0.0
-tmux send-keys -t ros_session:0.3 'sleep 10; roslaunch my_ego ego_planner_mid360.launch' C-m
+tmux send-keys -t ros_session:0.3 'sleep 10; roslaunch complete_mission ego_planner_mid360.launch' C-m
 
 # Pane 4: 激光雷达坐标转换
 tmux split-window -h -t ros_session:0.3
-tmux send-keys -t ros_session:0.4 'sleep 12; rosrun my_ego laser_to_worldframe' C-m
+tmux send-keys -t ros_session:0.4 'sleep 12; rosrun complete_mission laser_to_worldframe' C-m
 
 # 整理主窗口布局
 tmux select-layout -t ros_session:0 tiled
